@@ -1,0 +1,6 @@
+# {{ pgbackup_config_dir }}/{{ pgbackup_config_file }} is main config file for barman
+# It is managed by ansible. You should not edit it manually.
+[barman]
+{% for key,value in pgbackup_global_params.items() %}
+{{ key }}={{ value }}
+{% endfor %}

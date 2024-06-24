@@ -1,0 +1,16 @@
+# {{ pgbackup_config_dir }}/barman.d/{{ item.name }}.conf is server config file for barman
+# It is managed by ansible. You should not edit it manually.
+[{{ item.name }}]
+{% for key,value in item.backup_params.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+{% if item.models is defined %}
+
+{% for name,options in item.models.items() %}
+[{{ item.name }}:{{ name }}]
+{% for key,value in options.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}
+{% endif %}

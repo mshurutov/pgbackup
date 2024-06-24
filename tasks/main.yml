@@ -1,2 +1,76 @@
 ---
 # tasks file for pgbackup
+- name: install backup tool
+  ansible.builtin.package:
+    name: "{{ pgbackup_packages }}"
+    state: present
+
+- name: configure backup tool (pgbackrest and main config of barman)
+  ansible.builtin.template:
+    src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}.cfg.j2"
+    dest: "{{ pgbackup_config_dir }}/{{ pgbackup_config_file }}"
+    mode: "{{ pgbackup_config_file_mode }}"
+    owner: "{{ pgbackup_config_file_owner }}"
+    group: "{{ pgbackup_config_file_group }}"
+    validate: "{{ pgbackup_config_validate_command }}"
+  when: pgbackup_tool != "pg_probackup"
+
+- name: configure servers for barman
+  ansible.builtin.template:
+    src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}-instance.cfg.j2"
+    dest: "{{ pgbackup_config_dir }}/{% if pgbackup_tool =='barman' %}barman.d/{% endif %}{{ item.name }}.conf"
+    mode: "{{ pgbackup_config_file_mode }}"
+    owner: "{{ pgbackup_config_file_owner }}"
+    group: "{{ pgbackup_config_file_group }}"
+    validate: "{{ pgbackup_config_validate_command }}"
+  loop: "{{ pgbackup_instances }}"
+  when: pgbackup_tool == "barman"
+
+- name: check if base directories exists
+  ansible.builtin.file:
+    path: "{{ item.point }}"
+    state: directory
+    mode: "{{ pgbackup_config_file_mode }}"
+    owner: "{{ pgbackup_config_file_owner }}"
+    group: "{{ pgbackup_config_file_group }}"
+  when: item.type == "dir" or item.type == "directory"
+  loop: "{{ pgbackup_base_dest }}"
+
+- name: init tool
+  ansible.builtin.shell: "{{ pgbackup_init_command }} {{ item.name }}"
+  loop: "{{ pgbackup_instances }}"
+  when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
+
+- name: create backup instances
+  ansible.builtin.shell: "{{ pgbackup_create_command }} {{ item.name }}"
+  loop: "{{ pgbackup_instances }}"
+  when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
+  
+- name: create schedule for full backups
+  ansible.builtin.cron:
+    name: "Full backup of {{ item.name }}"
+    cron_file: "{{ pgbackup_config_file_owner }}"
+    user: "{{ pgbackup_config_file_owner }}"
+    job: "{{ item.full.backup_command }}"
+    minute: "{{ item.full.minute | default(omit) }}"
+    hour: "{{ item.full.hour | default(omit) }}"
+    day: "{{ item.full.day | default(omit) }}"
+    weekday: "{{ item.full.weekday | default(omit) }}"
+    month: "{{ item.full.month | default(omit) }}"
+    special_time: "{{ item.full.special_time | default(omit) }}"
+  loop: "{{ pgbackup_instances }}"
+
+- name: create schedule for incremental backups
+  ansible.builtin.cron:
+    name: "Incremental backup of {{ item.name }}"
+    cron_file: "{{ pgbackup_config_file_owner }}"
+    user: "{{ pgbackup_config_file_owner }}"
+    job: "{{ item.incr.backup_command }}"
+    minute: "{{ item.incr.minute | default(omit) }}"
+    hour: "{{ item.incr.hour | default(omit) }}"
+    day: "{{ item.incr.day | default(omit) }}"
+    weekday: "{{ item.incr.weekday | default(omit) }}"
+    month: "{{ item.incr.month | default(omit) }}"
+    special_time: "{{ item.incr.special_time | default(omit) }}"
+  when: item.incr is defined
+  loop: "{{ pgbackup_instances }}"
