@@ -1,11 +1,21 @@
 ---
+- name: Check if ansible version is equal or greater than 2.11
+  ansible.builtin.fail:
+    msg: "Ansible core should be equal or greater than 2.11"
+  when: ansible_version.full is ansible.builtin.version('2.11','<')
+
+- name: Check if python is equal or greater than 3
+  ansible.builtin.fail:
+    msg: "Python should be equal or greater than 3"
+  when: ansible_python.version.major is ansible.builtin.version('3','<')
+
 # tasks file for pgbackup
-- name: install backup tool
+- name: Install backup tool
   ansible.builtin.package:
     name: "{{ pgbackup_packages }}"
     state: present
 
-- name: configure backup tool (pgbackrest and main config of barman)
+- name: Configure backup tool (pgbackrest and main config of barman)
   ansible.builtin.template:
     src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}.cfg.j2"
     dest: "{{ pgbackup_config_dir }}/{{ pgbackup_config_file }}"
@@ -15,7 +25,7 @@
     validate: "{{ pgbackup_config_validate_command }}"
   when: pgbackup_tool != "pg_probackup"
 
-- name: configure servers for barman
+- name: Configure servers for barman
   ansible.builtin.template:
     src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}-instance.cfg.j2"
     dest: "{{ pgbackup_config_dir }}/{% if pgbackup_tool =='barman' %}barman.d/{% endif %}{{ item.name }}.conf"
@@ -26,7 +36,7 @@
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_tool == "barman"
 
-- name: check if base directories exists
+- name: Check if base directories exists
   ansible.builtin.file:
     path: "{{ item.point }}"
     state: directory
@@ -36,17 +46,17 @@
   when: item.type == "dir" or item.type == "directory"
   loop: "{{ pgbackup_base_dest }}"
 
-- name: init tool
+- name: Init tool
   ansible.builtin.shell: "{{ pgbackup_init_command }} {{ item.name }}"
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
 
-- name: create backup instances
+- name: Create backup instances
   ansible.builtin.shell: "{{ pgbackup_create_command }} {{ item.name }}"
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
   
-- name: create schedule for full backups
+- name: Create schedule for full backups
   ansible.builtin.cron:
     name: "Full backup of {{ item.name }}"
     cron_file: "{{ pgbackup_config_file_owner }}"
@@ -60,7 +70,7 @@
     special_time: "{{ item.full.special_time | default(omit) }}"
   loop: "{{ pgbackup_instances }}"
 
-- name: create schedule for incremental backups
+- name: Create schedule for incremental backups
   ansible.builtin.cron:
     name: "Incremental backup of {{ item.name }}"
     cron_file: "{{ pgbackup_config_file_owner }}"
