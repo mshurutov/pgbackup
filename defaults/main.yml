@@ -7,9 +7,9 @@ pgbackup_vars_dir: "{{ role_path }}/vars"
 # postgres backup tool. This variable must defined.
 pgbackup_tool:
 # only one from follow
-# - barman
-# - pg_probackup
-# - pgbackrest
+#  - barman
+#  - pg_probackup
+#  - pgbackrest
 # Packages. By default this variable is same as tool
 pgbackup_packages: "{{ pgbackup_tool }}"
 # config dir,file,file mode, file owner, file group
@@ -20,12 +20,12 @@ pgbackup_config_file_owner: "postgres"
 pgbackup_config_file_group: "postgres"
 # where are backup will be stored
 pgbackup_base_dest:
-# - point: /data/backups
-#   type: dir
-# - point:
-#   type: S3
-# - point
-#   type: azure
+#  - point: /data/backups
+#    type: dir
+#  - point:
+#    type: S3
+#  - point
+#    type: azure
 # Any commands of tool
 # validate config
 pgbackup_config_validate_command:
@@ -33,18 +33,18 @@ pgbackup_config_validate_command:
 pgbackup_init_command:
 pgbackup_create_command:
 pgbackup_instances:
-# - name: instance01
-#   full:
-#     minute: 0
-#     hour: 1
-#     weekday: 6
-#     backup_command: 
-#   incr:
-#     minute: 0
-#     hour: 1
-#     weekday: 0-5
-#     backup_command: 
-#   backup_params: # this set of options depends of backup tool
-#   models: # models is used by barman and may be defined only for this tool
-#     model1:
-#     model2:
+#  - name: instance01
+#    full:
+#      minute: 0
+#      hour: 1
+#      weekday: 6
+#      backup_command:
+#    incr:
+#      minute: 0
+#      hour: 1
+#      weekday: 0-5
+#      backup_command:
+#    backup_params: # this set of options depends of backup tool
+#    models: # models is used by barman and may be defined only for this tool
+#      model1:
+#      model2:

@@ -28,7 +28,7 @@
 - name: Configure servers for barman
   ansible.builtin.template:
     src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}-instance.cfg.j2"
-    dest: "{{ pgbackup_config_dir }}/{% if pgbackup_tool =='barman' %}barman.d/{% endif %}{{ item.name }}.conf"
+    dest: "{{ pgbackup_config_dir }}/{% if pgbackup_tool == 'barman' %}barman.d/{% endif %}{{ item.name }}.conf"
     mode: "{{ pgbackup_config_file_mode }}"
     owner: "{{ pgbackup_config_file_owner }}"
     group: "{{ pgbackup_config_file_group }}"
@@ -47,15 +47,17 @@
   loop: "{{ pgbackup_base_dest }}"
 
 - name: Init tool
-  ansible.builtin.shell: "{{ pgbackup_init_command }} {{ item.name }}"
+  ansible.builtin.command: "{{ pgbackup_init_command }} {{ item.name }}"
+  changed_when: true
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
 
 - name: Create backup instances
-  ansible.builtin.shell: "{{ pgbackup_create_command }} {{ item.name }}"
+  ansible.builtin.command: "{{ pgbackup_create_command }} {{ item.name }}"
+  changed_when: true
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
-  
+
 - name: Create schedule for full backups
   ansible.builtin.cron:
     name: "Full backup of {{ item.name }}"
