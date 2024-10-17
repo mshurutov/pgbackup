@@ -6,18 +6,20 @@ pgbackup_files_dir: "{{ role_path }}/files"
 pgbackup_vars_dir: "{{ role_path }}/vars"
 # postgres backup tool. This variable must defined.
 pgbackup_tool:
-# only one from follow
-#  - barman
-#  - pg_probackup
-#  - pgbackrest
+# only one value from follow
+#  barman
+#  pg_probackup
+#  pgbackrest
 # Packages. By default this variable is same as tool
 pgbackup_packages: "{{ pgbackup_tool }}"
 # config dir,file,file mode, file owner, file group
-pgbackup_config_dir: "/etc"
+pgbackup_config_dir: "/etc/{{ pgbackup_tool }}"
 pgbackup_config_file:
-pgbackup_config_file_mode: "0644"
-pgbackup_config_file_owner: "postgres"
-pgbackup_config_file_group: "postgres"
+pgbackup_config_dir_mode: "0750"
+pgbackup_data_dir_mode: "0750"
+pgbackup_config_file_mode: "0640"
+pgbackup_owner: "postgres"
+pgbackup_group: "postgres"
 # where are backup will be stored
 pgbackup_base_dest:
 #  - point: /data/backups
