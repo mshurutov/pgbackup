@@ -2,12 +2,12 @@
 # It is managed by ansible. You should not edit it manually.
 [global]
 {% for key,value in pgbackup_global_params.items() %}
-{{ key }}={{ value }}
+{{ key | replace("_","-") }}={{ value }}
 {% endfor %}
 {% for stanza in pgbackup_instances.items() %}
 
 [{{ stanza.name }}]
 {% for key,value in stanza.backup_params.items() %}
-{{ key }}={{ value }}
+{{ key | replace("_","-") }}={{ value }}
 {% endfor %}
 {% endfor %}
