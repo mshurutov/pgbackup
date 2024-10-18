@@ -1,40 +1,40 @@
 ---
 # defaults file for pgbackup
-# role directories
+# == role directories ==
 pgbackup_templates_dir: "{{ role_path }}/templates"
 pgbackup_files_dir: "{{ role_path }}/files"
 pgbackup_vars_dir: "{{ role_path }}/vars"
-# postgres backup tool. This variable must defined.
-pgbackup_tool:
-# only one value from follow
+# == postgres backup tool. This variable must defined. ==
+# pgbackup_tool: "pgbackrest"
+# == only one value from follow ==
 #  barman
 #  pg_probackup
 #  pgbackrest
-# Packages. By default this variable is same as tool
+# == Packages. By default this variable is same as tool ==
 pgbackup_packages: "{{ pgbackup_tool }}"
-# config dir,file,file mode, file owner, file group
+# == config dir,file,file mode, file owner, file group ==
 pgbackup_config_dir: "/etc/{{ pgbackup_tool }}"
-pgbackup_config_file:
+# pgbackup_config_file: "{{ pgbackup_config_dir }}/{{ pgbackup_tool }}.conf"
 pgbackup_config_dir_mode: "0750"
 pgbackup_data_dir_mode: "0750"
 pgbackup_config_file_mode: "0640"
 pgbackup_owner: "postgres"
 pgbackup_group: "postgres"
-# where are backup will be stored
-pgbackup_base_dest:
+# == where are backup will be stored ==
+# pgbackup_base_dest:
 #  - point: /data/backups
 #    type: dir
 #  - point:
 #    type: S3
 #  - point
 #    type: azure
-# Any commands of tool
-# validate config
-pgbackup_config_validate_command:
-# init command
-pgbackup_init_command:
-pgbackup_create_command:
-pgbackup_instances:
+# == Any commands of tool ==
+# == validate config ==
+# pgbackup_instance_config_check_cmd:
+# == init command ==
+# pgbackup_init_command:
+# pgbackup_create_command:
+# pgbackup_instances:
 #  - name: instance01
 #    full:
 #      minute: 0

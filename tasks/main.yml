@@ -51,7 +51,6 @@
     mode: "{{ pgbackup_config_file_mode }}"
     owner: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
-    validate: "{{ pgbackup_config_validate_command }}"
 
 - name: Configure custom instances if mode is separated
   when: when item.mode is defined and item.mode == "separate"
@@ -62,8 +61,14 @@
     mode: "{{ pgbackup_config_file_mode }}"
     owner: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
-    validate: "{{ pgbackup_config_validate_command }}"
   loop: "{{ pgbackup_instances }}"
+
+- name: Check if instance configuration is correct
+  when: pgbackup_instance_config_check_cmd is defined and pgbackup_instance_config_check_cmd | length > 0
+  tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_instance
+  ansible.builtin.command: "{{ pgbackup_instance_config_check_cmd }}"
+  loop: "{{ pgbackup_instances }}"
+  changed_when: false
 
 - name: Check if base directories exist
   when: item.type == "dir" or item.type == "directory"
