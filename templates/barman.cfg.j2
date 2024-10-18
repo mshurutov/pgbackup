@@ -4,3 +4,12 @@
 {% for key,value in pgbackup_global_params.items() %}
 {{ key }}={{ value }}
 {% endfor %}
+{% for stanza in pgbackup_instances.items() %}
+{% if stanza.mode != 'separate' %}
+
+[{{ stanza.name }}]
+{% for key,value in stanza.backup_params.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}

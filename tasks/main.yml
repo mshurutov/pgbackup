@@ -47,14 +47,14 @@
   tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_common
   ansible.builtin.template:
     src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}.cfg.j2"
-    dest: "{{ pgbackup_config_dir }}/{{ pgbackup_config_file }}"
+    dest: "{{ pgbackup_config_file }}"
     mode: "{{ pgbackup_config_file_mode }}"
     owner: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
     validate: "{{ pgbackup_config_validate_command }}"
 
 - name: Configure custom instances if mode is separated
-  when: pgbackup_instances.mode == "separate"
+  when: when item.mode is defined and item.mode == "separate"
   tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_instance
   ansible.builtin.template:
     src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}-instance.cfg.j2"
@@ -78,14 +78,14 @@
 
 - name: Init tool
   tags: pgbackup,pgbckp_init
-  ansible.builtin.command: "{{ pgbackup_init_command }} {{ item.name }}"
+  ansible.builtin.command: "{{ pgbackup_init_command }}"
   changed_when: true
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
 
 - name: Create backup instances
   tags: pgbackup,pgbckp_create
-  ansible.builtin.command: "{{ pgbackup_create_command }} {{ item.name }}"
+  ansible.builtin.command: "{{ pgbackup_create_command }}"
   changed_when: true
   loop: "{{ pgbackup_instances }}"
   when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
