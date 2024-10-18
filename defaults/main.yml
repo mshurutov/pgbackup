@@ -20,14 +20,15 @@ pgbackup_data_dir_mode: "0750"
 pgbackup_config_file_mode: "0640"
 pgbackup_owner: "postgres"
 pgbackup_group: "postgres"
+# pgbackup_owner_home_dir:
 # == where are backup will be stored ==
 # pgbackup_base_dest:
-#  - point: /data/backups
-#    type: dir
-#  - point:
-#    type: S3
-#  - point
-#    type: azure
+#   - point: /data/backups
+#     type: dir
+#   - point:
+#     type: S3
+#   - point
+#     type: azure
 # == Any commands of tool ==
 # == validate config ==
 # pgbackup_instance_config_check_cmd:

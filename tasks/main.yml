@@ -23,6 +23,9 @@
   ansible.builtin.user:
     name: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
+    create_home: true
+    home: "{{ pgbackup_owner_home_dir }}"
+    move_home: true
 
 - name: Setup ssh keys for hosts
   when: ssh_keys_create_force is defined and ssh_keys_create_force | bool
@@ -30,6 +33,13 @@
   ansible.builtin.include_role:
     name: "mshurutov.common"
     tasks_from: "ssh-keys.yml"
+
+- name: Check if log dir exists
+  ansible.builtin.file:
+    path: "{{ pgbackup_log_dir }}"
+    mode: "{{ pgbackup_log_dir_mode | default('0770') }}"
+    owner: "{{ pgbackup_owner }}"
+    group: "{{ pgbackup_group }}"
 
 - name: Check if config dir exists
   tags: pgbackup,pgbckp_config,pgbckp_config_dir
