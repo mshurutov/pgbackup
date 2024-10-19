@@ -40,6 +40,14 @@
   become: true
   become_user: root
   tags: pgbackup,pgbckp_user
+  ansible.builtin.group:
+    name: "{{ pgbackup_group }}"
+    state: present
+
+- name: Check if backup owner exists
+  become: true
+  become_user: root
+  tags: pgbackup,pgbckp_user
   ansible.builtin.user:
     name: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
