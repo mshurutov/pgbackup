@@ -12,6 +12,20 @@
   ansible.builtin.fail:
     msg: "Python should be equal or greater than 3"
 
+- name: Add repos
+  tags: pgbackup,pgbckp_repos,pgbckp_install
+  block:
+    - name: Add apt repos
+      when: ansible_pkg_mgr == "apt"
+      ansible.builtin.import_role:
+        name: "mshurutov.common"
+        tasks_from: "apt-repo-add.yml"
+    - name: Add apt+rpm repos
+      when: ansible_pkg_mgr == "apt_rpm"
+      ansible.builtin.import_role:
+        name: "mshurutov.common"
+        tasks_from: "apt_rpm-repo-add.yml"
+
 - name: Install backup tool
   tags: pgbackup,pgbckp_install
   ansible.builtin.package:
