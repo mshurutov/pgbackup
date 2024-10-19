@@ -13,6 +13,8 @@
     msg: "Python should be equal or greater than 3"
 
 - name: Add repos
+  become: true
+  become_user: root
   tags: pgbackup,pgbckp_repos,pgbckp_install
   block:
     - name: Add apt repos
@@ -27,12 +29,16 @@
         tasks_from: "apt_rpm-repo-add.yml"
 
 - name: Install backup tool
+  become: true
+  become_user: root
   tags: pgbackup,pgbckp_install
   ansible.builtin.package:
     name: "{{ pgbackup_packages }}"
     state: present
 
 - name: Check if backup owner exists
+  become: true
+  become_user: root
   tags: pgbackup,pgbckp_user
   ansible.builtin.user:
     name: "{{ pgbackup_owner }}"
@@ -49,6 +55,8 @@
     tasks_from: "ssh-keys.yml"
 
 - name: Check if log dir exists
+  become: true
+  become_user: root
   ansible.builtin.file:
     path: "{{ pgbackup_log_dir }}"
     mode: "{{ pgbackup_log_dir_mode | default('0770') }}"
@@ -56,6 +64,8 @@
     group: "{{ pgbackup_group }}"
 
 - name: Check if config dir exists
+  become: true
+  become_user: root
   tags: pgbackup,pgbckp_config,pgbckp_config_dir
   ansible.builtin.file:
     path: "{{ item }}"
@@ -67,6 +77,8 @@
     - "{{ pgbackup_custom_config_dir | default(omit) }}"
 
 - name: Configure backup tool (pgbackrest and main config of barman)
+  become: true
+  become_user: root
   when: pgbackup_tool != "pg_probackup"
   tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_common
   ansible.builtin.template:
@@ -77,6 +89,8 @@
     group: "{{ pgbackup_group }}"
 
 - name: Configure custom instances if mode is separated
+  become: true
+  become_user: root
   when: when item.mode is defined and item.mode == "separate"
   tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_instance
   ansible.builtin.template:
@@ -88,6 +102,8 @@
   loop: "{{ pgbackup_instances }}"
 
 - name: Check if instance configuration is correct
+  become: true
+  become_user: "{{ pgbackup_owner }}"
   when: pgbackup_instance_config_check_cmd is defined and pgbackup_instance_config_check_cmd | length > 0
   tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_instance
   ansible.builtin.command: "{{ pgbackup_instance_config_check_cmd }}"
@@ -95,6 +111,8 @@
   changed_when: false
 
 - name: Check if base directories exist
+  become: true
+  become_user: root
   when: item.type == "dir" or item.type == "directory"
   tags: pgbackup,pgbckp_data_dirs
   ansible.builtin.file:
@@ -106,20 +124,27 @@
   loop: "{{ pgbackup_base_dest }}"
 
 - name: Init tool
+  become: true
+  become_user: "{{ pgbackup_owner }}"
+  when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
   tags: pgbackup,pgbckp_init
   ansible.builtin.command: "{{ pgbackup_init_command }}"
   changed_when: true
   loop: "{{ pgbackup_instances }}"
-  when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
 
 - name: Create backup instances
+  become: true
+  become_user: "{{ pgbackup_owner }}"
+  when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
   tags: pgbackup,pgbckp_create
   ansible.builtin.command: "{{ pgbackup_create_command }}"
   changed_when: true
   loop: "{{ pgbackup_instances }}"
-  when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
 
 - name: Create schedule for full backups
+  become: true
+  become_user: root
+  when: pgbackup_is_backup_host is defined and pgbackup_is_backup_host | bool
   tags: pgbackup,pgbckp_schedule,pgbckp_full_schedule
   ansible.builtin.cron:
     name: "Full backup of {{ item.name }}"
@@ -135,6 +160,9 @@
   loop: "{{ pgbackup_instances }}"
 
 - name: Create schedule for incremental backups
+  become: true
+  become_user: root
+  when: item.incr is defined and pgbackup_is_backup_host is defined and pgbackup_is_backup_host | bool
   tags: pgbackup,pgbckp_schedule,pgbckp_incr_schedule
   ansible.builtin.cron:
     name: "Incremental backup of {{ item.name }}"
@@ -147,5 +175,4 @@
     weekday: "{{ item.incr.weekday | default(omit) }}"
     month: "{{ item.incr.month | default(omit) }}"
     special_time: "{{ item.incr.special_time | default(omit) }}"
-  when: item.incr is defined
   loop: "{{ pgbackup_instances }}"
