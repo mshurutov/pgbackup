@@ -4,10 +4,10 @@
 {% for key,value in pgbackup_global_params.items() %}
 {{ key | replace("_","-") }}={{ value }}
 {% endfor %}
-{% for stanza in pgbackup_instances.items() %}
+{% for stanza in pgbackup_instances %}
 
 [{{ stanza.name }}]
-{% for key,value in stanza.backup_params.items() %}
-{{ key | replace("_","-") }}={{ value }}
+{% for key1,value1 in stanza.backup_params.items() %}
+{{ key1 | replace("_","-") }}={{ value1 }}
 {% endfor %}
 {% endfor %}

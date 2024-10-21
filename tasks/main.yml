@@ -36,7 +36,7 @@
     name: "{{ pgbackup_packages }}"
     state: present
 
-- name: Check if backup owner exists
+- name: Check if backup group exists
   become: true
   become_user: root
   tags: pgbackup,pgbckp_user
@@ -65,21 +65,25 @@
 - name: Check if log dir exists
   become: true
   become_user: root
+  tags: pgbackup,pgbckp_config,pgbckp_log_dir
   ansible.builtin.file:
     path: "{{ pgbackup_log_dir }}"
     mode: "{{ pgbackup_log_dir_mode | default('0770') }}"
     owner: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
+    state: directory
 
 - name: Check if config dir exists
   become: true
   become_user: root
   tags: pgbackup,pgbckp_config,pgbckp_config_dir
+  when: item is defined and item | length > 0
   ansible.builtin.file:
     path: "{{ item }}"
     mode: "{{ pgbackup_config_dir_mode }}"
     owner: "{{ pgbackup_owner }}"
     group: "{{ pgbackup_group }}"
+    state: directory
   loop:
     - "{{ pgbackup_config_dir }}"
     - "{{ pgbackup_custom_config_dir | default(omit) }}"
@@ -99,7 +103,7 @@
 - name: Configure custom instances if mode is separated
   become: true
   become_user: root
-  when: when item.mode is defined and item.mode == "separate"
+  when: item.mode is defined and item.mode == "separate"
   tags: pgbackup,pgbckp_config,pgbckp_config_file,pgbckp_config_file_instance
   ansible.builtin.template:
     src: "{{ pgbackup_templates_dir }}/{{ pgbackup_tool }}-instance.cfg.j2"
@@ -121,7 +125,10 @@
 - name: Check if base directories exist
   become: true
   become_user: root
-  when: item.type == "dir" or item.type == "directory"
+  when: (item.type == "dir"
+    or item.type == "directory")
+    and pgbackup_is_backup_host is defined
+    and pgbackup_is_backup_host | bool
   tags: pgbackup,pgbckp_data_dirs
   ansible.builtin.file:
     path: "{{ item.point }}"
@@ -134,18 +141,18 @@
 - name: Init tool
   become: true
   become_user: "{{ pgbackup_owner }}"
-  when: pgbackup_init_command is defined and pgbackup_init_command | length > 0
+  when: item.pgbackup_init_command is defined and item.pgbackup_init_command | length > 0
   tags: pgbackup,pgbckp_init
-  ansible.builtin.command: "{{ pgbackup_init_command }}"
+  ansible.builtin.command: "{{ item.pgbackup_init_command }}"
   changed_when: true
   loop: "{{ pgbackup_instances }}"
 
 - name: Create backup instances
   become: true
   become_user: "{{ pgbackup_owner }}"
-  when: pgbackup_create_command is defined and pgbackup_create_command | length > 0
+  when: item.pgbackup_create_command is defined and item.pgbackup_create_command | length > 0
   tags: pgbackup,pgbckp_create
-  ansible.builtin.command: "{{ pgbackup_create_command }}"
+  ansible.builtin.command: "{{ item.pgbackup_create_command }}"
   changed_when: true
   loop: "{{ pgbackup_instances }}"
 
@@ -184,3 +191,83 @@
     month: "{{ item.incr.month | default(omit) }}"
     special_time: "{{ item.incr.special_time | default(omit) }}"
   loop: "{{ pgbackup_instances }}"
+
+- name: Check if postgres is started
+  tags: pgbackup,pgbckp_pg_conf
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      ps -ef | grep '[p]ostgres.*-D'
+  args:
+    executable: /bin/bash
+  register: postgres_is_started
+  failed_when: not (postgres_is_started.rc == 0 or postgres_is_started.rc == 1)
+  check_mode: false
+  changed_when: false
+
+- name: Check if archive_mode is on in config file
+  become: true
+  become_user: "{{ pgbackup_owner }}"
+  when: postgres_is_started.rc == 0
+  tags: pgbackup,pgbckp_pg_conf
+  community.postgresql.postgresql_query:
+    db: "template1"
+    login_unix_socket: "{{ postgres_unix_socket }}"
+    login_user: "{{ pgbackup_owner }}"
+    query: "select setting from pg_settings where name = 'archive_mode'"
+  register: is_archive_mod_on
+
+- name: Fail if archive_mode is disabled
+  tags: pgbackup,pgbckp_pg_conf
+  ansible.builtin.fail:
+    msg: "archive_mode is off, but for backup it should be enabled"
+  when: postgres_is_started.rc == 0 and is_archive_mod_on.query_result.0.setting == "off"
+
+- name: Change archive_command on postgres hosts
+  become: true
+  become_user: "{{ pgbackup_owner }}"
+  when: postgres_is_started.rc == 0
+  tags: pgbackup,pgbckp_pg_conf
+  ansible.builtin.lineinfile:
+    backrefs: true
+    line: '\1{{ item.pgbackup_archive_command_define }}'
+    path: "{{ pgbackup_postgres_config }}"
+    regexp: '^#?(\s*)archive_command.*$'
+    state: present
+  loop: "{{ pgbackup_instances }}"
+
+- name: Reload postgres config on single mode
+  when: postgres_install_mode == "single" or postgres_install_mode == "replica"
+  tags: pgbackup,pgbckp_pg_conf
+  ansible.builtin.service:
+    name: "{{ postgres_service_name }}"
+    state: "reloaded"
+
+- name: Configure postgresql instance(s) with patroni cluster
+  when: postgres_install_mode == "patroni"
+  tags: pgbackup,pgbckp_pg_conf
+  block:
+    - name: Check if host is Leader
+      become: true
+      become_user: "{{ pgbackup_owner }}"
+      when: postgres_is_started.rc == 0
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          patronictl -c /etc/patroni/patroni.yml list -f tsv | awk '/Leader/ {print $3 }'
+      changed_when: false
+      register: leader_ip4
+#    - name: Commit changes into cluster
+#      become: true
+#      become_user: "{{ pgbackup_owner }}"
+#      when: postgres_is_started.rc == 0 and common_ip4_default == leader_ip4.stdout
+#      ansible.builtin.command:
+#        argv:
+#          - patronictl
+#          - -c
+#          - "{{ pgbackup_postgres_config }}"
+#          - edit-config
+#          - -p
+#          - '"archive_command = {{ item.pgbackup_archive_command }}"'
+#      changed_when: true
+#      loop: "{{ pgbackup_instances }}"
