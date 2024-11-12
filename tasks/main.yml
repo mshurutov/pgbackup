@@ -125,7 +125,8 @@
 - name: Check if base directories exist
   become: true
   become_user: root
-  when: (item.type == "dir"
+  when: pgbackup_base_dest is defined and pgbackup_base_dest | length > 0
+    and (item.type == "dir"
     or item.type == "directory")
     and pgbackup_is_backup_host is defined
     and pgbackup_is_backup_host | bool
