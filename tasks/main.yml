@@ -56,7 +56,7 @@
     move_home: true
 
 - name: Setup ssh keys for hosts
-  when: ssh_keys_create_force is defined and ssh_keys_create_force | bool
+#  when: ssh_keys_create_force is defined and ssh_keys_create_force | bool
   tags: pgbackup,pgbckp_ssh_keys
   ansible.builtin.include_role:
     name: "mshurutov.common"
@@ -86,7 +86,7 @@
     state: directory
   loop:
     - "{{ pgbackup_config_dir }}"
-    - "{{ pgbackup_custom_config_dir | default(omit) }}"
+    - "{{ pgbackup_custom_config_dir | default(postgres_conf_dir) }}"
 
 - name: Configure backup tool (pgbackrest and main config of barman)
   become: true
@@ -139,10 +139,24 @@
     group: "{{ pgbackup_group }}"
   loop: "{{ pgbackup_base_dest }}"
 
+- name: Get instances list
+  become: true
+  become_user: "{{ pgbackup_owner }}"
+  tags: pgbackup,pgbckp_init,pgbckp_create
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      {{ pgbackup_get_instances }}
+#  args:
+#    executable: /bin/bash
+  register: pgbackup_instances_installed
+  check_mode: false
+  changed_when: false
+
 - name: Init tool
   become: true
   become_user: "{{ pgbackup_owner }}"
-  when: item.pgbackup_init_command is defined and item.pgbackup_init_command | length > 0
+  when: pgbackup_instances_installed.stdout == '' and item.pgbackup_init_command is defined and item.pgbackup_init_command | length > 0
   tags: pgbackup,pgbckp_init
   ansible.builtin.command: "{{ item.pgbackup_init_command }}"
   changed_when: true
@@ -151,7 +165,7 @@
 - name: Create backup instances
   become: true
   become_user: "{{ pgbackup_owner }}"
-  when: item.pgbackup_create_command is defined and item.pgbackup_create_command | length > 0
+  when: not item.name in pgbackup_instances_installed.stdout_lines and item.pgbackup_create_command is defined and item.pgbackup_create_command | length > 0
   tags: pgbackup,pgbckp_create
   ansible.builtin.command: "{{ item.pgbackup_create_command }}"
   changed_when: true
@@ -231,13 +245,15 @@
   tags: pgbackup,pgbckp_pg_conf
   ansible.builtin.lineinfile:
     backrefs: true
-    line: '\1{{ item.pgbackup_archive_command_define }}'
+    line: '\1archive_command = {{ postgres_archive_command }}'
     path: "{{ pgbackup_postgres_config }}"
     regexp: '^#?(\s*)archive_command.*$'
     state: present
   loop: "{{ pgbackup_instances }}"
 
 - name: Reload postgres config on single mode
+  become: true
+  become_user: "root"
   when: postgres_install_mode == "single" or postgres_install_mode == "replica"
   tags: pgbackup,pgbckp_pg_conf
   ansible.builtin.service:
