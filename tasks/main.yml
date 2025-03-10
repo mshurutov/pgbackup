@@ -32,9 +32,27 @@
   become: true
   become_user: root
   tags: pgbackup,pgbckp_install
+  block:
+    - name: Install backup tool on normal distro
+      when: ansible_pkg_mgr != "apt_rpm"
+      ansible.builtin.package:
+        name: "{{ pgbackup_packages }}"
+        state: present
+    - name: Install backup tool on normal distro
+      when: ansible_pkg_mgr == "apt_rpm"
+      ansible.builtin.package:
+        name: "{{ pgbackup_packages }}"
+        state: present_not_latest
+
+- name: Update backup tool
+  become: true
+  become_user: root
+  tags: pgbackup,pgbckp_install
+  when: pgbackup_update_force is defined and pgbackup_update_force | bool
   ansible.builtin.package:
     name: "{{ pgbackup_packages }}"
-    state: present
+    state: latest
+    only_upgrade: true
 
 - name: Check if backup group exists
   become: true
